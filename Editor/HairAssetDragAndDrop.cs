@@ -1,3 +1,4 @@
+using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 
@@ -5,6 +6,8 @@ namespace Unity.DemoTeam.Hair
 {
     class HairAssetDragAndDrop
     {
+        const string k_GenericDataKey = "HairAssetDragAndDrop";
+
         [InitializeOnLoadMethod]
         static void HandleDropHairAssetInScene()
         {
@@ -20,17 +23,33 @@ namespace Unity.DemoTeam.Hair
                 if (obj is HairAsset)
                 {
                     var hairAsset = obj as HairAsset;
+
+                    var hairInstanceGameObject = DragAndDrop.GetGenericData(k_GenericDataKey) as GameObject;
+                    if (hairInstanceGameObject == null)
+                    {
+                        hairInstanceGameObject = new GameObject(hairAsset.name, typeof(HairInstance));
+                        hairInstanceGameObject.hideFlags = HideFlags.HideInHierarchy ;
+
+                        var hairComp = hairInstanceGameObject.GetComponent<HairInstance>();
+                        hairComp.strandGroupProviders[0].hairAsset = hairAsset;
+                        hairComp.strandGroupProviders[0].hairAssetQuickEdit = true;
+
+                        DragAndDrop.SetGenericData(k_GenericDataKey, hairInstanceGameObject);
+                    }
+
+                    hairInstanceGameObject.transform.position = worldPosition;
+                    hairInstanceGameObject.transform.SetParent(parentForDraggedObjects);
+
                     if (perform)
                     {
-                        //DragAndDrop.AcceptDrag();
-                        var go = new GameObject(hairAsset.name, typeof(HairInstance));
-                        var hairInstance = go.GetComponent<HairInstance>();
-                        hairInstance.strandGroupProviders[0].hairAsset = hairAsset;
-                        hairInstance.strandGroupProviders[0].hairAssetQuickEdit = true;
-                        go.transform.position = worldPosition;
-                        go.transform.SetParent(parentForDraggedObjects);
-                        Selection.activeGameObject = go;
+                        hairInstanceGameObject.hideFlags = HideFlags.None;
+                        Undo.RegisterCreatedObjectUndo(hairInstanceGameObject, "Place " + hairInstanceGameObject.name);
+
+                        Selection.activeGameObject = hairInstanceGameObject;
+
+                        DragAndDrop.AcceptDrag();
                     }
+
                     ++count;
                 }
             }
@@ -50,7 +69,6 @@ namespace Unity.DemoTeam.Hair
                     var hairAsset = obj as HairAsset;
                     if (perform)
                     {
-                        //DragAndDrop.AcceptDrag();
                         var go = new GameObject(hairAsset.name, typeof(HairInstance));
                         var hairInstance = go.GetComponent<HairInstance>();
                         hairInstance.strandGroupProviders[0].hairAsset = hairAsset;
@@ -74,6 +92,7 @@ namespace Unity.DemoTeam.Hair
                         }
 
                         Selection.activeGameObject = go;
+                        DragAndDrop.AcceptDrag();
                     }
                     ++count;
                 }
