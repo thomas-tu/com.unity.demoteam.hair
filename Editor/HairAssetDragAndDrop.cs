@@ -1,4 +1,3 @@
-using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 
@@ -6,16 +5,37 @@ namespace Unity.DemoTeam.Hair
 {
     class HairAssetDragAndDrop
     {
-        const string k_GenericDataKey = "HairAssetDragAndDrop";
+        static GameObject s_DraggedObjet = null;
 
         [InitializeOnLoadMethod]
         static void HandleDropHairAssetInScene()
         {
-            DragAndDrop.AddDropHandler(OnDragOntoScene);
             DragAndDrop.AddDropHandler(OnDragOntoHierarchy);
+
+            SceneView.duringSceneGui += OnSceneGUI;
         }
 
-        static DragAndDropVisualMode OnDragOntoScene(UnityEngine.Object dropUpon, Vector3 worldPosition, Vector2 viewportPosition, Transform parentForDraggedObjects, bool perform)
+        static void OnSceneGUI(SceneView sv)
+        {
+            var evt = Event.current;
+            if (evt == null)
+                return;
+
+            switch (evt.type)
+            {
+                case EventType.DragUpdated:
+                    HandleDragUpdate();
+                    break;
+                case EventType.DragPerform:
+                    HandleDragPerformed();
+                    break;
+                case EventType.DragExited:
+                    HandleDragExited();
+                    break;
+            }
+        }
+
+        static void HandleDragUpdate()
         {
             int count = 0;
             foreach (var obj in DragAndDrop.objectReferences)
@@ -24,39 +44,52 @@ namespace Unity.DemoTeam.Hair
                 {
                     var hairAsset = obj as HairAsset;
 
-                    var hairInstanceGameObject = DragAndDrop.GetGenericData(k_GenericDataKey) as GameObject;
+                    var hairInstanceGameObject = s_DraggedObjet;
                     if (hairInstanceGameObject == null)
                     {
                         hairInstanceGameObject = new GameObject(hairAsset.name, typeof(HairInstance));
-                        hairInstanceGameObject.hideFlags = HideFlags.HideInHierarchy ;
+                        hairInstanceGameObject.hideFlags = HideFlags.HideInHierarchy;
 
                         var hairComp = hairInstanceGameObject.GetComponent<HairInstance>();
                         hairComp.strandGroupProviders[0].hairAsset = hairAsset;
                         hairComp.strandGroupProviders[0].hairAssetQuickEdit = true;
-
-                        DragAndDrop.SetGenericData(k_GenericDataKey, hairInstanceGameObject);
-                    }
-
-                    hairInstanceGameObject.transform.position = worldPosition;
-                    hairInstanceGameObject.transform.SetParent(parentForDraggedObjects);
-
-                    if (perform)
-                    {
-                        hairInstanceGameObject.hideFlags = HideFlags.None;
-                        Undo.RegisterCreatedObjectUndo(hairInstanceGameObject, "Place " + hairInstanceGameObject.name);
-
-                        Selection.activeGameObject = hairInstanceGameObject;
-
+                        s_DraggedObjet = hairInstanceGameObject;
                         DragAndDrop.AcceptDrag();
                     }
 
+                    HandleUtility.PlaceObject(Event.current.mousePosition, out Vector3 p, out Vector3 n);
+                    hairInstanceGameObject.transform.position = p;
+
+                    DragAndDrop.visualMode = DragAndDropVisualMode.Generic;
+                    Event.current.Use();
                     ++count;
                 }
             }
+        }
 
-            if (count > 0)
-                return DragAndDropVisualMode.Generic;
-            return DragAndDropVisualMode.None;
+        static void HandleDragPerformed()
+        {
+
+            if (s_DraggedObjet == null)
+                return;
+            var hairInstanceGameObject = s_DraggedObjet;
+
+            hairInstanceGameObject.hideFlags = HideFlags.None;
+            Undo.RegisterCreatedObjectUndo(hairInstanceGameObject, "Place " + hairInstanceGameObject.name);
+
+            Selection.activeGameObject = hairInstanceGameObject;
+            s_DraggedObjet = null;
+            Event.current.Use();
+        }
+
+        static void HandleDragExited()
+        {
+            if (s_DraggedObjet == null)
+                return;
+
+            GameObject.DestroyImmediate(s_DraggedObjet);
+            s_DraggedObjet = null;
+            Event.current.Use();
         }
 
         static DragAndDropVisualMode OnDragOntoHierarchy(int dropTargetInstanceID, HierarchyDropFlags dropMode, Transform parentForDraggedObjects, bool perform)
