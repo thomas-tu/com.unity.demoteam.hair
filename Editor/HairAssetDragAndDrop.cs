@@ -60,7 +60,7 @@ namespace Unity.DemoTeam.Hair
                     HandleUtility.PlaceObject(Event.current.mousePosition, out Vector3 p, out Vector3 n);
                     hairInstanceGameObject.transform.position = p;
 
-                    DragAndDrop.visualMode = DragAndDropVisualMode.Generic;
+                    DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
                     Event.current.Use();
                     ++count;
                 }
@@ -132,7 +132,7 @@ namespace Unity.DemoTeam.Hair
             }
 
             if (count > 0)
-                return DragAndDropVisualMode.Generic;
+                return DragAndDropVisualMode.Copy;
             return DragAndDropVisualMode.None;
         }
     }
