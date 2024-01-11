@@ -5,12 +5,12 @@ namespace Unity.DemoTeam.Hair
 {
     class HairAssetDragAndDrop
     {
-        static GameObject s_DraggedObjet = null;
+        static GameObject s_DraggedObject = null;
 
         [InitializeOnLoadMethod]
         static void HandleDropHairAssetInScene()
         {
-            DragAndDrop.AddDropHandler(OnDragOntoHierarchy);
+            DragAndDrop.AddDropHandler(HandleDragOntoHierarchy);
 
             SceneView.duringSceneGui += OnSceneGUI;
         }
@@ -44,16 +44,10 @@ namespace Unity.DemoTeam.Hair
                 {
                     var hairAsset = obj as HairAsset;
 
-                    var hairInstanceGameObject = s_DraggedObjet;
+                    var hairInstanceGameObject = s_DraggedObject;
                     if (hairInstanceGameObject == null)
                     {
-                        hairInstanceGameObject = new GameObject(hairAsset.name, typeof(HairInstance));
-                        hairInstanceGameObject.hideFlags = HideFlags.HideInHierarchy;
-
-                        var hairComp = hairInstanceGameObject.GetComponent<HairInstance>();
-                        hairComp.strandGroupProviders[0].hairAsset = hairAsset;
-                        hairComp.strandGroupProviders[0].hairAssetQuickEdit = true;
-                        s_DraggedObjet = hairInstanceGameObject;
+                        s_DraggedObject = InstantiateHairPreviewInSceneView(hairAsset);
                         DragAndDrop.AcceptDrag();
                     }
 
@@ -61,38 +55,38 @@ namespace Unity.DemoTeam.Hair
                     hairInstanceGameObject.transform.position = p;
 
                     DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
-                    Event.current.Use();
                     ++count;
                 }
             }
+
+            if (count > 0)
+                Event.current.Use();
         }
 
         static void HandleDragPerformed()
         {
 
-            if (s_DraggedObjet == null)
+            if (s_DraggedObject == null)
                 return;
-            var hairInstanceGameObject = s_DraggedObjet;
 
-            hairInstanceGameObject.hideFlags = HideFlags.None;
-            Undo.RegisterCreatedObjectUndo(hairInstanceGameObject, "Place " + hairInstanceGameObject.name);
+            var instance = PerformHairInstantationInSceneView(s_DraggedObject);
+            s_DraggedObject = null;
 
-            Selection.activeGameObject = hairInstanceGameObject;
-            s_DraggedObjet = null;
+            Selection.activeGameObject = instance;
             Event.current.Use();
         }
 
         static void HandleDragExited()
         {
-            if (s_DraggedObjet == null)
+            if (s_DraggedObject == null)
                 return;
 
-            GameObject.DestroyImmediate(s_DraggedObjet);
-            s_DraggedObjet = null;
+            GameObject.DestroyImmediate(s_DraggedObject);
+            s_DraggedObject = null;
             Event.current.Use();
         }
 
-        static DragAndDropVisualMode OnDragOntoHierarchy(int dropTargetInstanceID, HierarchyDropFlags dropMode, Transform parentForDraggedObjects, bool perform)
+        static DragAndDropVisualMode HandleDragOntoHierarchy(int dropTargetInstanceID, HierarchyDropFlags dropMode, Transform parentForDraggedObjects, bool perform)
         {
             int count = 0;
             foreach (var obj in DragAndDrop.objectReferences)
@@ -134,6 +128,26 @@ namespace Unity.DemoTeam.Hair
             if (count > 0)
                 return DragAndDropVisualMode.Copy;
             return DragAndDropVisualMode.None;
+        }
+
+        static GameObject InstantiateHairPreviewInSceneView(HairAsset hairAsset)
+        {
+            var hairInstanceGameObject = new GameObject(hairAsset.name, typeof(HairInstance));
+            hairInstanceGameObject.hideFlags = HideFlags.HideInHierarchy;
+
+            var hairComp = hairInstanceGameObject.GetComponent<HairInstance>();
+            hairComp.strandGroupProviders[0].hairAsset = hairAsset;
+            hairComp.strandGroupProviders[0].hairAssetQuickEdit = true;
+
+            return hairInstanceGameObject;
+        }
+
+        static GameObject PerformHairInstantationInSceneView(GameObject preview)
+        {
+            preview.hideFlags = HideFlags.None;
+            Undo.RegisterCreatedObjectUndo(preview, "Place " + preview.name);
+
+            return preview;
         }
     }
 }
